@@ -12,7 +12,7 @@ nodist_libvmod_oob_probe_la_SOURCES = \
 	vcc_if.c \
 	vcc_if.h
 
-vmod_oob_probe.lo: vcc_if.c vcc_if.h
+vmod.lo: vcc_if.c vcc_if.h
 
 vcc_if.c: vcc_if.h
 
