@@ -1,0 +1,65 @@
+varnishtest "Test VMOD oob_probe (cf. v00014.vtc)"
+
+server s1 {
+	rxreq
+	expect req.url == "/"
+	txresp -body "slash"
+	rxreq
+	expect req.url == "/foo"
+	txresp -body "foobar"
+} -start
+
+server s2 -repeat 3 {
+	rxreq
+	expect req.url == "/"
+	txresp -body "slash"
+} -start
+
+varnish v1 -vcl {
+
+	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
+	import ${vmod_std};
+
+	probe foo {
+		.url = "/";
+		.timeout = 1s;
+		.interval = 1s;
+		.window = 3;
+		.threshold = 2;
+		.initial = 0;
+	}
+
+	backend default {
+		.host = "${s1_addr}";
+		.port = "${s1_port}";
+		.max_connections = 1;
+	}
+
+	sub vcl_init {
+		oob_probe.probe_port(default, foo, "${s2_port}");
+	}
+
+	sub vcl_recv {
+		if (std.healthy(default)) {
+			return(synth(200,"Backend healthy"));
+		} else {
+			return(synth(500,"Backend sick"));
+		}
+	}
+} -start
+
+varnish v1 -cli "backend.list -p"
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 500
+} -run
+
+delay 2.5
+
+client c1 {
+	txreq -url "/foo"
+	rxresp
+	expect resp.status == 200
+} -run

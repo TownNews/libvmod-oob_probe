@@ -1,0 +1,34 @@
+#-
+# Copyright (c) 2015 UPLEX Nils Goroll Systemoptimierung
+# All rights reserved
+#
+# Author: Geoffrey Simmons <geoffrey.simmons@uplex.de>
+#
+# See LICENCE
+#
+
+$Module oob_probe 3 Varnish Module to Assign Out-Of-Band Probes to Backends
+
+DESCRIPTION
+===========
+
+This Varnish module provides functions to assign an out-of-band probe
+to a backend; that is, a probe that listens at a different port on the
+backend host, or at a different host. The use case is for backend apps
+that provide a "health agent" or something similar, listening at a
+network location that is different from the location of the main app.
+
+$Function VOID probe_port(BACKEND backend, PROBE probe, STRING port)
+
+$Function VOID probe_addr(BACKEND backend, PROBE probe, STRING addr,
+                          STRING port)
+
+$Function STRING version()
+
+COPYRIGHT
+=========
+
+This document is licensed under the same conditions as the
+libvmod-oob_probe project. See LICENSE for details.
+
+* Copyright (c) 2015 UPLEX Nils Goroll Systemoptimierung
