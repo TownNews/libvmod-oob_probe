@@ -1,0 +1,52 @@
+varnishtest "Test Backend Polling with an out-of-band port (cf. c00017.vtc)"
+
+server s1 {} -start
+
+server s2 {
+	# Probes
+	loop 8 {
+		rxreq
+		expect req.url == "/"
+		txresp -hdr "Bar: foo" -body "foobar"
+		accept
+	}
+
+	loop 3 {
+		rxreq
+		expect req.url == "/"
+		txresp -status 404 -hdr "Bar: foo" -body "foobar"
+		accept
+	}
+	loop 2 {
+		rxreq
+		expect req.url == "/"
+		txresp -proto "FROBOZ" -status 200 -hdr "Bar: foo" -body "foobar"
+		accept
+	}
+
+	sema r1 sync 2
+} -start
+
+varnish v1 -vcl {
+
+	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
+
+	probe p {
+		.timeout = 1 s;
+		.interval = 0.1 s;
+	}
+
+	backend foo {
+		.host = "${s1_addr}";
+		.port = "${s1_port}";
+	}
+
+	sub vcl_init {
+		oob_probe.port(foo, p, "${s2_port}");
+	}
+
+} -start
+
+sema r1 sync 2
+
+varnish v1 -cli "backend.list -p"
