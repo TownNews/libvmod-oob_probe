@@ -1,25 +1,25 @@
-varnishtest "Test VMOD oob_probe (cf. v00014.vtc)"
+varnishtest "Test setting the probe port (cf. v00014.vtc)"
 
 server s1 {
 	rxreq
-	expect req.url == "/"
-	txresp -body "slash"
-	rxreq
-	expect req.url == "/foo"
-	txresp -body "foo"
+	expect req.url == "/baz"
+	txresp -body "backend"
 } -start
 
 server s2 {
 	rxreq
-	sema r1 sync 2
 	expect req.url == "/"
 	txresp -body "one"
+	sema r1 sync 2
 	accept
 	rxreq
-	sema r2 sync 2
 	expect req.url == "/"
 	txresp -body "two"
+	sema r2 sync 2
 	accept
+	rxreq
+	expect req.url == "/"
+	txresp -body "three"
 } -start
 
 varnish v1 -vcl {
@@ -47,6 +47,9 @@ varnish v1 -vcl {
 	}
 
 	sub vcl_recv {
+		if (req.url == "/baz") {
+			return(pass);
+		}
 		if (std.healthy(default)) {
 			return(synth(200,"Backend healthy"));
 		} else {
@@ -61,12 +64,21 @@ client c1 {
 	txreq
 	rxresp
 	expect resp.status == 500
+	expect resp.body ~ "Backend sick"
 	sema r1 sync 2
 	txreq -url "/foo"
 	rxresp
 	expect resp.status == 500
+	expect resp.body ~ "Backend sick"
 	sema r2 sync 2
 	txreq -url "/bar"
 	rxresp
 	expect resp.status == 200
+	expect resp.body ~ "Backend healthy"
+	txreq -url "/baz"
+	rxresp
+	expect resp.status == 200
+	expect resp.body == "backend"
 } -run
+
+varnish v1 -expect VBE.vcl1.default.happy > 0
