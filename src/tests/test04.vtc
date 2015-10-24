@@ -1,4 +1,4 @@
-varnishtest "Test Backend Polling with an out-of-band port (cf. c00017.vtc)"
+varnishtest "Test Backend Polling with an out-of-band address (cf. c00017.vtc)"
 
 server s1 {} -start
 
