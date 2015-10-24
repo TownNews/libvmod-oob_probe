@@ -1,0 +1,69 @@
+varnishtest "Forcing health of backends with an out-of-band probe address (cf. c00048.vtc)"
+
+server s1 -repeat 3 {
+	rxreq
+	txresp
+} -start
+
+server s2 -repeat 3 {
+	rxreq
+	txresp
+} -start
+
+varnish v1 -vcl {
+	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
+
+	probe p {
+		.window = 8;
+		.initial = 7;
+		.threshold = 8;
+		.interval = 10s;
+	}
+
+	backend s1 {
+		.host = "${s1_addr}";
+		.port = "${s1_port}";
+	}
+
+	sub vcl_init {
+		oob_probe.addr(s1, p, "${s2_addr}", "${s2_port}");
+	}
+
+	sub vcl_recv {
+		return(pass);
+	}
+
+} -start
+
+delay 1
+
+varnish v1 -cliok "vcl.list"
+varnish v1 -cliok "backend.list -p"
+varnish v1 -cliok "backend.set_health s1 auto"
+varnish v1 -cliok "backend.list -p"
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 200
+} -run
+
+varnish v1 -cliok "backend.list"
+varnish v1 -cliok "backend.set_health s1 sick"
+varnish v1 -cliok "backend.list"
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 503
+} -run
+
+varnish v1 -cliok "backend.list"
+varnish v1 -cliok "backend.set_health s1 healthy"
+varnish v1 -cliok "backend.list"
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 200
+} -run
