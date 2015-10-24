@@ -1,0 +1,84 @@
+varnishtest "Test setting the probe address (cf. v00014.vtc)"
+
+server s1 {
+	rxreq
+	expect req.url == "/baz"
+	txresp -body "backend"
+} -start
+
+server s2 {
+	rxreq
+	expect req.url == "/"
+	txresp -body "one"
+	sema r1 sync 2
+	accept
+	rxreq
+	expect req.url == "/"
+	txresp -body "two"
+	sema r2 sync 2
+	accept
+	rxreq
+	expect req.url == "/"
+	txresp -body "three"
+} -start
+
+varnish v1 -vcl {
+
+	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
+	import ${vmod_std};
+
+	probe foo {
+		.url = "/";
+		.timeout = 1s;
+		.interval = 1s;
+		.window = 3;
+		.threshold = 2;
+		.initial = 0;
+	}
+
+	backend default {
+		.host = "${s1_addr}";
+		.port = "${s1_port}";
+		.max_connections = 1;
+	}
+
+	sub vcl_init {
+		oob_probe.probe_addr(default, foo, "${s2_addr}", "${s2_port}");
+	}
+
+	sub vcl_recv {
+		if (req.url == "/baz") {
+			return(pass);
+		}
+		if (std.healthy(default)) {
+			return(synth(200,"Backend healthy"));
+		} else {
+			return(synth(500,"Backend sick"));
+		}
+	}
+} -start
+
+varnish v1 -cli "backend.list -p"
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 500
+	expect resp.body ~ "Backend sick"
+	sema r1 sync 2
+	txreq -url "/foo"
+	rxresp
+	expect resp.status == 500
+	expect resp.body ~ "Backend sick"
+	sema r2 sync 2
+	txreq -url "/bar"
+	rxresp
+	expect resp.status == 200
+	expect resp.body ~ "Backend healthy"
+	txreq -url "/baz"
+	rxresp
+	expect resp.status == 200
+	expect resp.body == "backend"
+} -run
+
+varnish v1 -expect VBE.vcl1.default.happy > 0
