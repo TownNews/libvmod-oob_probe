@@ -6,13 +6,20 @@ server s1 {
 	txresp -body "slash"
 	rxreq
 	expect req.url == "/foo"
-	txresp -body "foobar"
+	txresp -body "foo"
 } -start
 
-server s2 -repeat 3 {
+server s2 {
 	rxreq
+	sema r1 sync 2
 	expect req.url == "/"
-	txresp -body "slash"
+	txresp -body "one"
+	accept
+	rxreq
+	sema r2 sync 2
+	expect req.url == "/"
+	txresp -body "two"
+	accept
 } -start
 
 varnish v1 -vcl {
@@ -54,12 +61,12 @@ client c1 {
 	txreq
 	rxresp
 	expect resp.status == 500
-} -run
-
-delay 2.5
-
-client c1 {
+	sema r1 sync 2
 	txreq -url "/foo"
+	rxresp
+	expect resp.status == 500
+	sema r2 sync 2
+	txreq -url "/bar"
 	rxresp
 	expect resp.status == 200
 } -run
