@@ -18,10 +18,9 @@ backend host, or at a different host. The use case is for backend apps
 that provide a "health agent" or something similar, listening at a
 network location that is different from the location of the main app.
 
-$Function VOID probe_port(BACKEND backend, PROBE probe, STRING port)
+$Function VOID port(BACKEND backend, PROBE probe, STRING port)
 
-$Function VOID probe_addr(BACKEND backend, PROBE probe, STRING addr,
-                          STRING port)
+$Function VOID addr(BACKEND backend, PROBE probe, STRING addr, STRING port)
 
 $Function STRING version()
 

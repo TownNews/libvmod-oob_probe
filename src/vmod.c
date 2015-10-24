@@ -115,7 +115,7 @@ insert_probe(struct backend *bp, VCL_PROBE probe, struct suckaddr *sa4,
 }
 
 VCL_VOID
-vmod_probe_port(VRT_CTX, VCL_BACKEND be, VCL_PROBE probe, VCL_STRING port)
+vmod_port(VRT_CTX, VCL_BACKEND be, VCL_PROBE probe, VCL_STRING port)
 {
 	struct backend *bp;
 	struct suckaddr *sa4 = NULL, *sa6 = NULL;
@@ -139,7 +139,7 @@ vmod_probe_port(VRT_CTX, VCL_BACKEND be, VCL_PROBE probe, VCL_STRING port)
 }
 
 VCL_VOID
-vmod_probe_addr(VRT_CTX, VCL_BACKEND be, VCL_PROBE probe, VCL_STRING host,
+vmod_addr(VRT_CTX, VCL_BACKEND be, VCL_PROBE probe, VCL_STRING host,
 		VCL_STRING port)
 {
 	struct backend *bp;

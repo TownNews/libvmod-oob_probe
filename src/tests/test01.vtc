@@ -43,7 +43,7 @@ varnish v1 -vcl {
 	}
 
 	sub vcl_init {
-		oob_probe.probe_port(default, foo, "${s2_port}");
+		oob_probe.port(default, foo, "${s2_port}");
 	}
 
 	sub vcl_recv {
