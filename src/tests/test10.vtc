@@ -1,0 +1,86 @@
+varnishtest "Interaction of out-of-band probe addresses with VCL temperature (cf. v00044.vtc)"
+
+server s1 {} -start
+
+server s2 -repeat 20 {
+	rxreq
+	txresp
+	delay .2
+	accept
+} -start
+
+varnish v1 -arg "-p vcl_cooldown=1" -vcl {
+	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
+        
+	probe p { .interval = 1s; .initial = 1;}
+	backend default {
+		.host = "${s1_addr}";
+	}
+
+	sub vcl_init {
+		oob_probe.addr(default, p, "${s2_addr}", "${s2_port}");
+	}
+} -start
+
+# We only have one vcl yet
+varnish v1 -expect VBE.vcl1.default.happy >= 0
+varnish v1 -expect !VBE.vcl2.default.happy
+varnish v1 -cliok "backend.list -p *.*"
+
+varnish v1 -vcl {
+	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
+        
+	probe p { .interval = 1s; .initial = 1;}
+	backend default {
+		.host = "${s1_addr}";
+	}
+
+	sub vcl_init {
+		oob_probe.addr(default, p, "${s2_addr}", "${s2_port}");
+	}
+}
+
+# Now we have two vcls (and run on the latest loaded)
+delay .4
+varnish v1 -expect VBE.vcl1.default.happy >= 0
+varnish v1 -expect VBE.vcl2.default.happy >= 0
+
+# Freeze the first VCL
+varnish v1 -cliok "vcl.state vcl1 cold"
+delay .4
+varnish v1 -expect !VBE.vcl1.default.happy
+
+# Set it auto should be a no-op
+varnish v1 -cliok "vcl.state vcl1 auto"
+delay .4
+varnish v1 -expect !VBE.vcl1.default.happy
+
+# Use it, and it should come alive
+varnish v1 -cliok "vcl.use vcl1"
+delay .4
+varnish v1 -expect VBE.vcl1.default.happy >= 0
+varnish v1 -expect VBE.vcl2.default.happy >= 0
+
+# and the unused one should go cold
+delay 4
+varnish v1 -expect !VBE.vcl2.default.happy
+
+# Mark the used warm and use the other
+varnish v1 -cliok "vcl.state vcl1 warm"
+varnish v1 -cliok "vcl.use vcl2"
+
+# It will stay warm even after the cooldown period
+delay 4
+varnish v1 -expect VBE.vcl1.default.happy >= 0
+varnish v1 -expect VBE.vcl2.default.happy >= 0
+
+# ...when you use a cold VCL
+varnish v1 -cliok "vcl.state vcl1 cold"
+varnish v1 -cliok "vcl.use vcl1"
+
+# It will apply the cooldown period once inactive
+varnish v1 -cliok "vcl.use vcl2"
+delay .4
+varnish v1 -expect VBE.vcl1.default.happy >= 0
+delay 4
+varnish v1 -expect !VBE.vcl1.default.happy
