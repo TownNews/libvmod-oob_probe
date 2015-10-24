@@ -73,7 +73,7 @@ check(VRT_CTX, VCL_BACKEND be, VCL_PROBE probe, VCL_STRING port)
 	AN(port);
 
 	if (be->resolve != NULL) {
-		errmsg(ctx, "vmod backend_oob_probe error: "
+		errmsg(ctx, "vmod oob_probe error: "
 		       "%s is a cluster director, not a backend", be->vcl_name);
 		return 0;
 	}
@@ -131,7 +131,7 @@ vmod_port(VRT_CTX, VCL_BACKEND be, VCL_PROBE probe, VCL_STRING port)
 	if (bp->ipv6_addr != NULL)
 		sa6 = get_suckaddr(bp->ipv6_addr, port, AF_INET6);
 	if (sa4 == NULL && sa6 == NULL) {
-		errmsg(ctx, "vmod backend_oob_probe error: "
+		errmsg(ctx, "vmod oob_probe error: "
 		       "Bad port specification %s", port);
 		return;
 	}
@@ -154,7 +154,7 @@ vmod_addr(VRT_CTX, VCL_BACKEND be, VCL_PROBE probe, VCL_STRING host,
 	sa4 = get_suckaddr(host, port, AF_INET);
 	sa6 = get_suckaddr(host, port, AF_INET6);
 	if (sa4 == NULL && sa6 == NULL) {
-		errmsg(ctx, "vmod backend_oob_probe error: "
+		errmsg(ctx, "vmod oob_probe error: "
 		       "Cannot resolve %s:%s as a unique IPv4 or IPv6 address",
 		       host, port);
 		return;
