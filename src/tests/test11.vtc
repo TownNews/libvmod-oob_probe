@@ -1,0 +1,136 @@
+varnishtest "Test error handling for VMOD oob_probe"
+
+server s1 {} -start
+
+server s2 {} -start
+
+varnish v1 -vcl {
+	backend default { .host = "${s1_addr}"; }
+} -start
+
+varnish v1 -errvcl {Symbol not found: 'rr' (expected type BACKEND):} {
+	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
+	import ${vmod_directors};
+
+	probe p { .url = "/"; }
+	backend s1 {
+		.host = "${s1_addr}";
+		.port = "${s1_port}";
+	}
+
+	sub vcl_init {
+		new rr = directors.round_robin();
+		oob_probe.port(rr, p, "${s2_port}");
+	}
+}
+
+varnish v1 -errvcl {Symbol not found: 'rr' (expected type BACKEND):} {
+	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
+	import ${vmod_directors};
+
+	probe p { .url = "/"; }
+	backend s1 {
+		.host = "${s1_addr}";
+		.port = "${s1_port}";
+	}
+
+	sub vcl_init {
+		new rr = directors.round_robin();
+		oob_probe.addr(rr, p, "${s2_addr}", "${s2_port}");
+	}
+}
+
+varnish v1 -errvcl "vmod oob_probe error: Bad port specification: invalid" {
+
+	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
+
+	probe p { .url = "/"; }
+	backend s1 {
+		.host = "${s1_addr}";
+		.port = "${s1_port}";
+	}
+
+	sub vcl_init {
+		oob_probe.port(s1, p, "invalid");
+	}
+}
+
+varnish v1 -errvcl "vmod oob_probe error: Cannot resolve invalid:${s2_port} as a unique IPv4 or IPv6 address" {
+
+	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
+
+	probe p { .url = "/"; }
+	backend s1 {
+		.host = "${s1_addr}";
+		.port = "${s1_port}";
+	}
+
+	sub vcl_init {
+		oob_probe.addr(s1, p, "invalid", "${s2_port}");
+	}
+}
+
+varnish v1 -vcl {
+	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
+	import ${vmod_std};
+
+	probe p { .url = "/"; }
+	backend s1 {
+		.host = "${s1_addr}";
+		.port = "${s1_port}";
+	}
+
+	sub vcl_recv {
+		oob_probe.port(s1, p, "invalid");
+		if (std.healthy(s1)) {
+			return(synth(200,"Backend healthy"));
+		} else {
+			return(synth(500,"Backend sick"));
+		}
+	}
+}
+
+logexpect l1 -v v1 {
+	expect 0 * Begin req
+        expect * = VCL_Error "Bad port specification: invalid$"
+	expect * = End
+} -start
+
+client c1 {
+	txreq
+	rxresp
+	expect resp.status == 200
+	expect resp.body ~ "Backend healthy"
+} -run
+
+logexpect l1 -wait
+
+varnish v1 -vcl {
+	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
+	import ${vmod_std};
+
+	probe p { .url = "/"; }
+	backend s1 {
+		.host = "${s1_addr}";
+		.port = "${s1_port}";
+	}
+
+	sub vcl_recv {
+		oob_probe.addr(s1, p, "invalid", "${s2_port}");
+		if (std.healthy(s1)) {
+			return(synth(200,"Backend healthy"));
+		} else {
+			return(synth(500,"Backend sick"));
+		}
+	}
+}
+
+logexpect l2 -v v1 {
+	expect 0 * Begin req
+        expect * = VCL_Error "Cannot resolve invalid:${s2_port}"
+	expect * = End
+} -start
+
+client c1 -run
+
+logexpect l2 -wait

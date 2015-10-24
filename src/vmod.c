@@ -132,7 +132,7 @@ vmod_port(VRT_CTX, VCL_BACKEND be, VCL_PROBE probe, VCL_STRING port)
 		sa6 = get_suckaddr(bp->ipv6_addr, port, AF_INET6);
 	if (sa4 == NULL && sa6 == NULL) {
 		errmsg(ctx, "vmod oob_probe error: "
-		       "Bad port specification %s", port);
+		       "Bad port specification: %s", port);
 		return;
 	}
 	insert_probe(bp, probe, sa4, sa6);
