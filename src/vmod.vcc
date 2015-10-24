@@ -9,20 +9,180 @@
 
 $Module oob_probe 3 Varnish Module to Assign Out-Of-Band Probes to Backends
 
+::
+
+     probe p { .url = "/"; }
+     backend be1 { .host = "be1host.com"; .port = "80"; }
+     backend be2 { .host = "be2host.com"; .port = "80"; }
+
+     sub vcl_init {
+     	# Assign probe p, listening at port 8080, to backend be1
+	oob_probe.port(be1, p, "8080");
+
+     	# Assign probe p, listening at probehost.com:8080, to backend be2
+	oob_probe.addr(be2, p, "probehost.com", "8080");
+     }
+
 DESCRIPTION
 ===========
 
-This Varnish module provides functions to assign an out-of-band probe
-to a backend; that is, a probe that listens at a different port on the
-backend host, or at a different host. The use case is for backend apps
-that provide a "health agent" or something similar, listening at a
-network location that is different from the location of the main app.
+This Varnish module (VMOD) provides functions to assign an out-of-band
+health probe to a backend; that is, a probe that listens at a
+different port on the backend host, or at a different host. The use
+case is for backend apps that provide a "health agent" or something
+similar, listening at a network location that is different from the
+location of the main app.
+
+Backends and probes may be defined in the usual way, with static
+declarations in VCL. The ``port()`` and ``addr()`` functions then
+assign a probe to a backend, so that health checks for the backend are
+sent to the network location described in the calls.
 
 $Function VOID port(BACKEND backend, PROBE probe, STRING port)
 
+Description
+	Assign ``probe`` to ``backend``, so that health checks will be
+	sent to port ``port`` on the same host as the backend. If a
+	probe has already been assigned to ``backend``, it is removed
+	and replaced by ``probe``.
+
+	``backend`` MUST be a leaf backend, not a cluster director.
+	``port`` MUST be a numeric port number, or a TCP service name
+	listed in ``/etc/services``.
+
+Examples::
+
+	oob_probe.port(mybackend, myprobe, "81");
+	oob_probe.port(mybackend, myprobe, "www");
+
 $Function VOID addr(BACKEND backend, PROBE probe, STRING addr, STRING port)
 
+Description
+	Assign ``probe`` to ``backend``, so that health checks will be
+	sent to ``addr:port`` (replacing any probe that may have
+	already been assigned to ``backend``).
+
+	``addr`` is subject to the same restrictions that apply to the
+	``.host`` field of a VCL backend declaration -- it MUST be
+	either an IP address (IPv4 or IPv6), or a host name that can
+	be resolved when the function is called. A host name may
+	resolve to both an IPv4 and IPv6 address, but for each address
+	family, it MUST resolve to exactly one address.
+
+	``backend`` and ``port`` are subject to the same restrictions
+	described above for the ``port()`` function.
+
+Examples::
+
+	oob_probe.addr(mybackend, myprobe, "10.0.0.1", "81");
+	oob_probe.addr(mybackend, myprobe, "probehost.com", "http");
+
 $Function STRING version()
+
+Description
+	Returns the version string for this vmod.
+
+Example::
+
+	import std;
+	std.log("Using VMOD oob_probe version " + oob_probe.version());
+
+ERRORS
+======
+
+If ``port()`` or ``addr()`` are called in ``vcl_init``, and any of the
+restrictions described above are not met (for example if the port
+specification is invalid), then the VCL program will fail to load, and
+the VCC compiler will emit an error message.
+
+If the functions are called in any other VCL subroutine and an error
+occurs, then an error message will be written to the Varnish log using
+the tag ``VCL_Error``, and the probe will not be assigned to the
+backend.
+
+REQUIREMENTS
+============
+
+This VMOD requires Varnish 4.1.
+
+INSTALLATION
+============
+
+The VMOD is built against a Varnish installation, and the autotools
+use ``pkg-config(1)`` to locate the necessary header files and other
+resources. This sequence will install the VMOD::
+
+  > ./autogen.sh	# for builds from the git repo
+  > ./configure
+  > make
+  > make check		# to run unit tests in src/tests/*.vtc
+  > make distcheck	# run check and prepare a distribution tarball
+  > sudo make install
+
+If you have installed Varnish in a non-standard directory, call
+``autogen.sh`` and ``configure`` with the ``PKG_CONFIG_PATH``
+environment variable pointing to the appropriate path. For example,
+when varnishd configure was called with ``--prefix=$PREFIX``, use::
+
+  > PKG_CONFIG_PATH=${PREFIX}/lib/pkgconfig
+  > export PKG_CONFIG_PATH
+
+By default, the vmod ``configure`` script installs the vmod in
+the same directory as Varnish, determined via ``pkg-config(1)``. The
+vmod installation directory can be overridden by passing the
+``VMOD_DIR`` variable to ``configure``.
+
+Other files such as this man-page are installed in the locations
+determined by ``configure``, which inherits its default ``--prefix``
+setting from Varnish.
+
+For developers
+--------------
+
+As with Varnish, you can use these ``configure`` options for developer
+builds:
+
+*  ``--enable-developer-warnings``
+
+   * Set stricter error and warning levels for compilation. The VMOD
+     MUST always build successfully with this option enabled.
+
+* ``--enable-debugging-symbols``
+
+   * Make the VMOD's symbols available to debuggers, core dumps and so forth.
+
+* ``--enable-stack-protector``
+
+   * Emit extra code to avoid buffer overflows
+
+See ``configure --help`` for a full list of configuration options and
+environment variables.
+     
+AUTHOR
+======
+
+* Geoffrey Simmons <geoff@uplex.de>
+
+UPLEX Nils Goroll Systemoptimierung
+
+LIMITATIONS
+===========
+
+The ``test01.vtc`` and ``test02.vtc`` test cases may fail
+intermittently when ``make -jN check`` is called with too many
+parallel jobs (``N`` too large). If this happens, try running the
+check again with a lower value for ``-j``.
+
+``test09.vtc`` and ``test10.vtc`` take considerably longer to complete
+than the other test cases, about 20 seconds each. This is not an
+error.
+
+SEE ALSO
+========
+
+* varnishd(1)
+* vcl(7)
+* `"Writing a Director" <https://www.varnish-cache.org/docs/4.1/reference/directors.html/>`_
 
 COPYRIGHT
 =========
