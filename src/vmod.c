@@ -64,20 +64,14 @@ errmsg(VRT_CTX, const char *fmt, ...)
 	va_end(args);
 }
 
-static int
+static void
 check(VRT_CTX, VCL_BACKEND be, VCL_PROBE probe, VCL_STRING port)
 {
 	CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 	CHECK_OBJ_NOTNULL(be, DIRECTOR_MAGIC);
 	CHECK_OBJ_NOTNULL(probe, VRT_BACKEND_PROBE_MAGIC);
 	AN(port);
-
-	if (be->resolve != NULL) {
-		errmsg(ctx, "vmod oob_probe error: "
-		       "%s is a cluster director, not a backend", be->vcl_name);
-		return 0;
-	}
-	return 1;
+	AZ(be->resolve);
 }
 
 static struct suckaddr *
@@ -120,8 +114,7 @@ vmod_port(VRT_CTX, VCL_BACKEND be, VCL_PROBE probe, VCL_STRING port)
 	struct backend *bp;
 	struct suckaddr *sa4 = NULL, *sa6 = NULL;
 
-	if (!check(ctx, be, probe, port))
-		return;
+	check(ctx, be, probe, port);
 
 	CAST_OBJ_NOTNULL(bp, be->priv, BACKEND_MAGIC);
 	assert(bp->ipv4_addr != NULL || bp->ipv6_addr != NULL);
@@ -145,8 +138,7 @@ vmod_addr(VRT_CTX, VCL_BACKEND be, VCL_PROBE probe, VCL_STRING host,
 	struct backend *bp;
 	struct suckaddr *sa4 = NULL, *sa6 = NULL;
 
-	if (!check(ctx, be, probe, port))
-		return;
+	check(ctx, be, probe, port);
 	AN(host);
 
 	CAST_OBJ_NOTNULL(bp, be->priv, BACKEND_MAGIC);
