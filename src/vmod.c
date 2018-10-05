@@ -34,17 +34,40 @@
 #include <netdb.h>
 #include <stdio.h>
 #include <stdarg.h>
-
-#include "vcl.h"
-#include "vrt.h"
-#include "vas.h"
-#include "vsa.h"
+#include <string.h>
 #include "cache/cache.h"
+#include "vcl.h"
+
+#ifndef VRT_H_INCLUDED
+#  include <vrt.h>
+#endif
+
+#ifndef VDEF_H_INCLUDED
+#  include <vdef.h>
+#endif
+
+#ifndef VSA_H_INCLUDED
+#  include <vsa.h>
+#endif
+
+#ifndef VSB_H_INCLUDED
+#  include <vsb.h>
+#endif
+
+#include "vas.h"
 #include "cache/cache_director.h"
 #include "cache/cache_backend.h"
 #include "vapi/vsl.h"
 
 #include "vcc_if.h"
+
+#if (VRT_MAJOR_VERSION >= 7U)
+// This is unexported in varnish 6, but is required for this module to function.
+// This will most likely break in future.
+struct tcp_pool *
+VTP_Ref(const struct suckaddr *ip4, const struct suckaddr *ip6, const char *uds,
+        const void *id);
+#endif
 
 static void
 errmsg(VRT_CTX, const char *fmt, ...)
@@ -97,12 +120,18 @@ get_suckaddr(VCL_STRING host, VCL_STRING port, int family)
 static void
 insert_probe(struct backend *bp, VCL_PROBE probe, struct suckaddr *sa4,
 	     struct suckaddr *sa6)
+
 {
 	struct tcp_pool *tpool;
 
 	if (bp->probe != NULL)
 		VBP_Remove(bp);
+
+#if (VRT_MAJOR_VERSION >= 7U)
+	tpool = VTP_Ref(sa4, sa6, NULL, "OOB HTTP PROBE");
+#else
 	tpool = VBT_Ref(sa4, sa6);
+#endif
 	AN(tpool);
 	VBP_Insert(bp, probe, tpool);
 	AN(bp->probe);

@@ -1,5 +1,7 @@
 varnishtest "Test Backend Polling with an out-of-band address (cf. c00017.vtc)"
 
+barrier b1 cond 2
+
 server s1 {} -start
 
 server s2 {
@@ -24,7 +26,7 @@ server s2 {
 		accept
 	}
 
-	sema r1 sync 2
+	barrier b1 sync
 } -start
 
 varnish v1 -vcl {
@@ -47,6 +49,6 @@ varnish v1 -vcl {
 
 } -start
 
-sema r1 sync 2
+barrier b1 sync
 
 varnish v1 -cli "backend.list -p"

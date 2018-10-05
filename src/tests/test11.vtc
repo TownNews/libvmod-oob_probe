@@ -8,9 +8,10 @@ varnish v1 -vcl {
 	backend default { .host = "${s1_addr}"; }
 } -start
 
-varnish v1 -errvcl {Symbol not found: 'rr' (expected type BACKEND):} {
+
+varnish v1 -errvcl {Expression has type INSTANCE, expected BACKEND}  {
 	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
-	import ${vmod_directors};
+	import directors;
 
 	probe p { .url = "/"; }
 	backend s1 {
@@ -24,9 +25,9 @@ varnish v1 -errvcl {Symbol not found: 'rr' (expected type BACKEND):} {
 	}
 }
 
-varnish v1 -errvcl {Symbol not found: 'rr' (expected type BACKEND):} {
+varnish v1 -errvcl {Expression has type INSTANCE, expected BACKEND}  {
 	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
-	import ${vmod_directors};
+	import directors;
 
 	probe p { .url = "/"; }
 	backend s1 {
@@ -72,7 +73,7 @@ varnish v1 -errvcl "vmod oob_probe error: Cannot resolve invalid:${s2_port} as a
 
 varnish v1 -vcl {
 	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
-	import ${vmod_std};
+	import std;
 
 	probe p { .url = "/"; }
 	backend s1 {
@@ -107,7 +108,7 @@ logexpect l1 -wait
 
 varnish v1 -vcl {
 	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
-	import ${vmod_std};
+	import std;
 
 	probe p { .url = "/"; }
 	backend s1 {

@@ -1,5 +1,8 @@
 varnishtest "Test setting the probe port (cf. v00014.vtc)"
 
+barrier b1 cond 2
+barrier b2 cond 2
+
 server s1 {
 	rxreq
 	expect req.url == "/baz"
@@ -10,12 +13,12 @@ server s2 {
 	rxreq
 	expect req.url == "/"
 	txresp -body "one"
-	sema r1 sync 2
+	barrier b1 sync
 	accept
 	rxreq
 	expect req.url == "/"
 	txresp -body "two"
-	sema r2 sync 2
+	barrier b2 sync
 	accept
 	rxreq
 	expect req.url == "/"
@@ -25,7 +28,7 @@ server s2 {
 varnish v1 -vcl {
 
 	import oob_probe from "${vmod_topbuild}/src/.libs/libvmod_oob_probe.so";
-	import ${vmod_std};
+	import std;
 
 	probe foo {
 		.url = "/";
@@ -65,12 +68,12 @@ client c1 {
 	rxresp
 	expect resp.status == 500
 	expect resp.body ~ "Backend sick"
-	sema r1 sync 2
+	barrier b1 sync
 	txreq -url "/foo"
 	rxresp
 	expect resp.status == 500
 	expect resp.body ~ "Backend sick"
-	sema r2 sync 2
+	barrier b2 sync
 	txreq -url "/bar"
 	rxresp
 	expect resp.status == 200
